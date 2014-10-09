@@ -53,8 +53,8 @@ def compact(l):
     return [x for x in l if x is not None]
 
 _signames = dict((getattr(signal, signame), signame)
-                 for signame in dir(signal)
-                 if signame.startswith('SIG') and '_' not in signame)
+    for signame in dir(signal)
+    if signame.startswith('SIG') and '_' not in signame)
 
 
 def signal_name(signum):
@@ -69,25 +69,25 @@ def signal_name(signum):
 class Worker(object):
     redis_worker_namespace_prefix = 'rq:worker:'
     redis_workers_keys = 'rq:workers'
-    redis_worker_shutting_down_key = 'rq:worker:shutting_down'
+    redis_worker_pause_work_key = 'rq:worker:pause_work'
     death_penalty_class = UnixSignalDeathPenalty
     queue_class = Queue
     job_class = Job
 
     @classmethod
-    def shutting_down(cls):
+    def paused(cls):
         connection = get_current_connection()
-        return connection.get(cls.redis_worker_shutting_down_key)
+        return connection.get(cls.redis_worker_pause_work_key)
 
     @classmethod
-    def shutdown(cls):
+    def pause(cls):
         connection = get_current_connection()
-        connection.set(cls.redis_worker_shutting_down_key, str(datetime.utcnow()))
+        connection.set(cls.redis_worker_pause_work_key, str(datetime.utcnow()))
 
     @classmethod
-    def reset_shutdown(cls):
+    def reset_pause(cls):
         connection = get_current_connection()
-        connection.delete(cls.redis_worker_shutting_down_key)
+        connection.delete(cls.redis_worker_pause_work_key)
 
     @classmethod
     def all(cls, connection=None):
@@ -389,7 +389,7 @@ class Worker(object):
 
                 did_perform_work = True
 
-                if Worker.shutting_down():
+                if Worker.paused():
                     break
 
         finally:
@@ -416,7 +416,7 @@ class Worker(object):
                 if result is not None:
                     job, queue = result
                     self.log.info('%s: %s (%s)' % (green(queue.name),
-                                  blue(job.description), job.id))
+                                                   blue(job.description), job.id))
 
                 break
             except DequeueTimeout:
@@ -573,7 +573,7 @@ class Worker(object):
             'arguments': job.args,
             'kwargs': job.kwargs,
             'queue': job.origin,
-        })
+            })
 
         for handler in reversed(self._exc_handlers):
             self.log.debug('Invoking exception handler %s' % (handler,))
