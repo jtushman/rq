@@ -118,6 +118,16 @@ def info(url, path, interval, raw, only_queues, only_workers, by_queue, queues):
         sys.exit(0)
 
 
+
+@main.command()
+@click.option('--worker-class', '-w', default='rq.Worker', help='RQ Worker class to use')
+def reset_paused(worker_class):
+    """ If you set the 'rq:worker:pause_work' bit, this will unset it so you can start the server again
+    """
+    Worker = import_attribute(worker_class)
+    Worker.reset_shutdown()
+
+
 @main.command()
 @url_option
 @click.option('--config', '-c', help='Module containing RQ settings.')
@@ -158,7 +168,12 @@ def worker(url, config, burst, name, worker_class, job_class, queue_class, path,
     worker_class = import_attribute(worker_class)
     queue_class = import_attribute(queue_class)
 
+    if worker_class.paused():
+        click.secho("The worker has been paused, run reset_paused", fg='red')
+        sys.exit(1)
+
     try:
+
         queues = [queue_class(queue, connection=conn) for queue in queues]
         w = worker_class(queues,
                          name=name,

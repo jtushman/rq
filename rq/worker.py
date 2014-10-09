@@ -359,7 +359,6 @@ class Worker(object):
 
         The return value indicates whether any jobs were processed.
         """
-        Worker.reset_shutdown()
         setup_loghandlers()
         self._install_signal_handlers()
 
