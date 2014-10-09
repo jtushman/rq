@@ -63,3 +63,10 @@ class TestRQCli(RQTestCase):
         runner = CliRunner()
         result = runner.invoke(main, ['worker', '-u', self.redis_url, '-b'])
         self.assertEqual(result.exit_code, 0)
+
+    def test_reset_pause(self):
+        """rq reset_paused"""
+        runner = CliRunner()
+        result = runner.invoke(main, ['reset_paused'])
+        self.assertEqual(result.exit_code, 0)
+

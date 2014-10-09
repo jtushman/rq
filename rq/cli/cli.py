@@ -125,7 +125,7 @@ def reset_paused(worker_class):
     """ If you set the 'rq:worker:pause_work' bit, this will unset it so you can start the server again
     """
     Worker = import_attribute(worker_class)
-    Worker.reset_shutdown()
+    Worker.reset_pause()
 
 
 @main.command()
