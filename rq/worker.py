@@ -12,6 +12,7 @@ import sys
 import time
 import traceback
 import warnings
+from datetime import datetime
 
 from rq.compat import as_text, string_types, text_type
 
@@ -68,9 +69,25 @@ def signal_name(signum):
 class Worker(object):
     redis_worker_namespace_prefix = 'rq:worker:'
     redis_workers_keys = 'rq:workers'
+    redis_worker_shutting_down_key = 'rq:worker:shutting_down'
     death_penalty_class = UnixSignalDeathPenalty
     queue_class = Queue
     job_class = Job
+
+    @classmethod
+    def shutting_down(cls):
+        connection = get_current_connection()
+        return connection.get(cls.redis_worker_shutting_down_key)
+
+    @classmethod
+    def shutdown(cls):
+        connection = get_current_connection()
+        connection.set(cls.redis_worker_shutting_down_key, str(datetime.utcnow()))
+
+    @classmethod
+    def reset_shutdown(cls):
+        connection = get_current_connection()
+        connection.delete(cls.redis_worker_shutting_down_key)
 
     @classmethod
     def all(cls, connection=None):
@@ -342,6 +359,7 @@ class Worker(object):
 
         The return value indicates whether any jobs were processed.
         """
+        Worker.reset_shutdown()
         setup_loghandlers()
         self._install_signal_handlers()
 
@@ -371,6 +389,10 @@ class Worker(object):
                     queue.enqueue_dependents(job)
 
                 did_perform_work = True
+
+                if Worker.shutting_down():
+                    break
+
         finally:
             if not self.is_horse:
                 self.register_death()
