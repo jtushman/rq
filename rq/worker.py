@@ -368,6 +368,18 @@ class Worker(object):
         self.set_state('starting')
         try:
             while True:
+
+                try:
+                    notified = False
+                    while Worker.paused() and not self.stopped:
+                        if not notified:
+                            self.log.warn('Stopping on pause request REALLY.')
+                            self.set_state('paused')
+                            notified = True
+                        time.sleep(1)
+                except StopRequested:
+                    break
+
                 if self.stopped:
                     self.log.info('Stopping on request.')
                     break
@@ -388,9 +400,6 @@ class Worker(object):
                     queue.enqueue_dependents(job)
 
                 did_perform_work = True
-
-                if Worker.paused():
-                    break
 
         finally:
             if not self.is_horse:
