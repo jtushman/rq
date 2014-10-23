@@ -12,6 +12,7 @@ import sys
 import time
 import traceback
 import warnings
+from datetime import datetime
 
 from rq.compat import as_text, string_types, text_type
 
@@ -52,8 +53,8 @@ def compact(l):
     return [x for x in l if x is not None]
 
 _signames = dict((getattr(signal, signame), signame)
-                 for signame in dir(signal)
-                 if signame.startswith('SIG') and '_' not in signame)
+    for signame in dir(signal)
+    if signame.startswith('SIG') and '_' not in signame)
 
 
 def signal_name(signum):
@@ -68,9 +69,25 @@ def signal_name(signum):
 class Worker(object):
     redis_worker_namespace_prefix = 'rq:worker:'
     redis_workers_keys = 'rq:workers'
+    redis_worker_pause_work_key = 'rq:worker:pause_work'
     death_penalty_class = UnixSignalDeathPenalty
     queue_class = Queue
     job_class = Job
+
+    @classmethod
+    def paused(cls):
+        connection = get_current_connection()
+        return connection.get(cls.redis_worker_pause_work_key)
+
+    @classmethod
+    def pause(cls):
+        connection = get_current_connection()
+        connection.set(cls.redis_worker_pause_work_key, str(datetime.utcnow()))
+
+    @classmethod
+    def reset_pause(cls):
+        connection = get_current_connection()
+        connection.delete(cls.redis_worker_pause_work_key)
 
     @classmethod
     def all(cls, connection=None):
@@ -351,6 +368,22 @@ class Worker(object):
         self.set_state('starting')
         try:
             while True:
+                try:
+                    before_state = None
+                    notified = False
+                    while Worker.paused() and not self.stopped:
+                        if not notified:
+                            self.log.warn('Stopping on pause request REALLY.')
+                            before_state = self.get_state()
+                            self.set_state('paused')
+                            notified = True
+                        time.sleep(1)
+                except StopRequested:
+                    break
+
+                if before_state:
+                    self.set_state(before_state)
+
                 if self.stopped:
                     self.log.info('Stopping on request.')
                     break
@@ -371,6 +404,7 @@ class Worker(object):
                     queue.enqueue_dependents(job)
 
                 did_perform_work = True
+
         finally:
             if not self.is_horse:
                 self.register_death()
@@ -395,7 +429,7 @@ class Worker(object):
                 if result is not None:
                     job, queue = result
                     self.log.info('%s: %s (%s)' % (green(queue.name),
-                                  blue(job.description), job.id))
+                                                   blue(job.description), job.id))
 
                 break
             except DequeueTimeout:
@@ -552,7 +586,7 @@ class Worker(object):
             'arguments': job.args,
             'kwargs': job.kwargs,
             'queue': job.origin,
-        })
+            })
 
         for handler in reversed(self._exc_handlers):
             self.log.debug('Invoking exception handler %s' % (handler,))

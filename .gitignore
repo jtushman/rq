@@ -10,3 +10,5 @@
 .tox
 .vagrant
 Vagrantfile
+
+.idea

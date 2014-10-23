@@ -158,7 +158,12 @@ def worker(url, config, burst, name, worker_class, job_class, queue_class, path,
     worker_class = import_attribute(worker_class)
     queue_class = import_attribute(queue_class)
 
+    if worker_class.paused():
+        click.secho("The worker has been paused, run reset_paused", fg='red')
+        sys.exit(1)
+
     try:
+
         queues = [queue_class(queue, connection=conn) for queue in queues]
         w = worker_class(queues,
                          name=name,
