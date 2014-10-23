@@ -118,16 +118,6 @@ def info(url, path, interval, raw, only_queues, only_workers, by_queue, queues):
         sys.exit(0)
 
 
-
-@main.command()
-@click.option('--worker-class', '-w', default='rq.Worker', help='RQ Worker class to use')
-def reset_paused(worker_class):
-    """ If you set the 'rq:worker:pause_work' bit, this will unset it so you can start the server again
-    """
-    Worker = import_attribute(worker_class)
-    Worker.reset_pause()
-
-
 @main.command()
 @url_option
 @click.option('--config', '-c', help='Module containing RQ settings.')
