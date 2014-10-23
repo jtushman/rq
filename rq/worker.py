@@ -368,17 +368,21 @@ class Worker(object):
         self.set_state('starting')
         try:
             while True:
-
                 try:
+                    before_state = None
                     notified = False
                     while Worker.paused() and not self.stopped:
                         if not notified:
                             self.log.warn('Stopping on pause request REALLY.')
+                            before_state = self.get_state()
                             self.set_state('paused')
                             notified = True
                         time.sleep(1)
                 except StopRequested:
                     break
+
+                if before_state:
+                    self.set_state(before_state)
 
                 if self.stopped:
                     self.log.info('Stopping on request.')
